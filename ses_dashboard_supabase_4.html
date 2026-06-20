@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OLIVE SES Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
+  :root {
+    --bg:#f8fafc; --surface:#ffffff; --surface2:#f1f5f9; --border:#e2e8f0;
+    --accent:#0ea5e9; --accent2:#7c3aed; --green:#10b981; --orange:#f59e0b;
+    --text:#1e293b; --muted:#64748b; --ec:#0ea5e9; --pc:#7c3aed;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;opacity:.5;}
+  .app{position:relative;z-index:1;}
+  header{padding:14px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);box-shadow:0 1px 8px rgba(0,0,0,.06);position:sticky;top:0;z-index:100;}
+  .logo{font-family:'Syne',sans-serif;font-weight:800;font-size:18px;background:linear-gradient(135deg,#0ea5e9,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+  .hbadge{background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);color:var(--accent);font-size:11px;padding:3px 10px;border-radius:20px;}
+  .live-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.5);}50%{box-shadow:0 0 0 5px rgba(16,185,129,0);}}
+  .reload-btn{margin-left:auto;display:flex;align-items:center;gap:7px;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);color:var(--accent);font-size:12px;padding:7px 16px;border-radius:8px;cursor:pointer;transition:all .2s;font-family:'Noto Sans JP',sans-serif;font-weight:500;}
+  .reload-btn:hover{background:rgba(0,212,255,.2);}
+  .reload-btn:disabled{opacity:.5;cursor:not-allowed;}
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);background:var(--border);gap:1px;border-bottom:2px solid var(--border);box-shadow:0 1px 6px rgba(0,0,0,.04);}
+  .stat-card{background:var(--surface);padding:16px 22px;}
+  .slabel{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;}
+  .sval{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;line-height:1;}
+  .sval.b{color:var(--ec);} .sval.p{color:var(--pc);} .sval.g{color:var(--green);}
+  .ssub{font-size:11px;color:var(--muted);margin-top:2px;}
+  .main{display:grid;grid-template-columns:210px 1fr;min-height:calc(100vh - 105px);}
+  .sidebar{border-right:1px solid var(--border);background:#f8fafc;padding:18px 0;}
+  .sidebar-title{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);padding:0 18px;margin-bottom:6px;}
+  .nav-item{display:flex;align-items:center;gap:9px;padding:8px 14px;cursor:pointer;font-size:13px;color:var(--muted);transition:all .15s;border:none;background:none;width:100%;text-align:left;font-family:'Noto Sans JP',sans-serif;}
+  .nav-item:hover{background:var(--surface2);color:var(--text);}
+  .nav-item.active{background:rgba(0,212,255,.08);color:var(--accent);}
+  .nav-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .nav-count{margin-left:auto;background:var(--surface2);color:var(--muted);font-size:10px;padding:1px 7px;border-radius:10px;}
+  .nav-item.active .nav-count{background:rgba(0,212,255,.15);color:var(--accent);}
+  .sbsec{margin-bottom:20px;}
+  .content{padding:22px 26px;}
+  .content-title{font-family:'Syne',sans-serif;font-size:19px;font-weight:700;margin-bottom:14px;}
+  .search-area{margin-bottom:14px;display:flex;flex-direction:column;gap:9px;}
+  .search-wrap{position:relative;display:flex;align-items:center;}
+  .search-icon{position:absolute;left:13px;color:var(--muted);font-size:14px;pointer-events:none;}
+  .search-box{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 36px 10px 38px;color:var(--text);font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none;transition:border-color .2s;}
+  .search-box::placeholder{color:var(--muted);}
+  .search-box:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,212,255,.08);}
+  .clear-btn{position:absolute;right:11px;background:var(--surface2);border:none;color:var(--muted);cursor:pointer;font-size:12px;width:20px;height:20px;border-radius:50%;display:none;align-items:center;justify-content:center;}
+  .clear-btn:hover{background:var(--border);color:var(--text);}
+  .filter-row{display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
+  .filter-label{font-size:11px;color:var(--muted);}
+  .chip{padding:5px 12px;border-radius:20px;font-size:11px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s;font-family:'Noto Sans JP',sans-serif;}
+  .chip:hover{border-color:var(--accent);color:var(--text);}
+  .chip.active{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.08);}
+  .res-label{font-size:12px;color:var(--muted);margin-bottom:6px;min-height:16px;}
+  .cards-grid{display:flex;flex-direction:column;gap:10px;}
+  .mail-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;transition:all .2s;position:relative;overflow:hidden;animation:cardIn .35s ease both;}
+  .mail-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;}
+  .mail-card.engineer::before{background:var(--ec);}
+  .mail-card.project::before{background:var(--pc);}
+  .mail-card:hover{border-color:rgba(14,165,233,.3);background:var(--surface2);box-shadow:0 2px 12px rgba(0,0,0,.06);}
+  @keyframes cardIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  .card-top{display:flex;align-items:flex-start;gap:11px;margin-bottom:10px;}
+  .type-badge{font-size:10px;font-weight:700;padding:3px 9px;border-radius:4px;flex-shrink:0;text-transform:uppercase;letter-spacing:.5px;}
+  .type-badge.engineer{background:rgba(0,212,255,.12);color:var(--ec);border:1px solid rgba(0,212,255,.25);}
+  .type-badge.project{background:rgba(167,139,250,.12);color:var(--pc);border:1px solid rgba(167,139,250,.25);}
+  .card-subject{font-size:13px;font-weight:500;line-height:1.4;flex:1;}
+  .card-meta{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:9px;}
+  .meta-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);}
+  .meta-item strong{color:var(--text);font-weight:500;}
+  .skill-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
+  .skill-tag{background:#e0f2fe;border:1px solid #bae6fd;color:#0369a1;font-size:11px;padding:2px 8px;border-radius:4px;}
+  .card-footer{display:flex;align-items:center;gap:9px;padding-top:10px;border-top:1px solid var(--border);}
+  .sender-info{font-size:11px;color:var(--muted);}
+  .time-info{font-size:11px;color:var(--muted);margin-left:auto;}
+  .empty-state{text-align:center;padding:60px;color:var(--muted);}
+  .highlight{background:rgba(14,165,233,.18);color:#0369a1;border-radius:2px;padding:0 1px;}
+  .loading-state{display:flex;flex-direction:column;align-items:center;padding:60px;gap:14px;}
+  .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+
+  /* マルチタグ検索 */
+  .search-tag{display:inline-flex;align-items:center;gap:4px;background:rgba(0,212,255,.15);border:1px solid rgba(0,212,255,.4);color:var(--accent);font-size:11px;padding:3px 8px;border-radius:12px;white-space:nowrap;}
+  .search-tag button{background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;padding:0;line-height:1;opacity:.7;}
+  .search-tag button:hover{opacity:1;}
+  #multiSearchWrap{align-items:flex-start;}
+
+  /* ページネーション */
+  .pagination{display:flex;align-items:center;justify-content:center;gap:6px;padding:20px 0;flex-wrap:wrap;}
+  .page-btn{min-width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);font-size:13px;cursor:pointer;transition:all .15s;font-family:'Noto Sans JP',sans-serif;padding:0 10px;}
+  .page-btn:hover{border-color:var(--accent);color:var(--text);}
+  .page-btn.active{background:rgba(0,212,255,.12);border-color:var(--accent);color:var(--accent);font-weight:700;}
+  .page-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .page-info{font-size:12px;color:var(--muted);padding:0 8px;}
+  .page-ellipsis{color:var(--muted);font-size:13px;padding:0 4px;}
+
+  .error-banner{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#fca5a5;padding:14px 18px;border-radius:8px;font-size:13px;margin-bottom:14px;}
+
+  /* 設定モーダル */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;width:480px;max-width:90vw;}
+  .modal-title{font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:18px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;}
+  .field input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none;}
+  .field input:focus{border-color:var(--accent);}
+  .modal-btns{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),#0099cc);color:#000;font-weight:700;font-size:13px;padding:9px 20px;border-radius:8px;border:none;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+  .btn-secondary{background:var(--surface2);color:var(--muted);font-size:13px;padding:9px 20px;border-radius:8px;border:1px solid var(--border);cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+
+  /* 詳細モーダル */
+  .detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;display:none;align-items:center;justify-content:center;padding:20px;}
+  .detail-overlay.open{display:flex;}
+  .detail-modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:640px;max-width:95vw;max-height:88vh;overflow-y:auto;position:relative;animation:modalIn .25s ease;}
+  @keyframes modalIn{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+  .detail-header{padding:22px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:12px;position:sticky;top:0;background:var(--surface);z-index:10;}
+  .detail-close{margin-left:auto;background:var(--surface2);border:none;color:var(--muted);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;}
+  .detail-close:hover{background:var(--border);color:var(--text);}
+  .detail-title{font-size:14px;font-weight:600;line-height:1.5;flex:1;}
+  .detail-body{padding:20px 24px;}
+  .detail-section{margin-bottom:20px;}
+  .detail-section-title{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:10px;}
+  .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .detail-field{background:var(--surface2);border-radius:8px;padding:10px 14px;}
+  .detail-field-label{font-size:10px;color:var(--muted);margin-bottom:3px;}
+  .detail-field-value{font-size:13px;font-weight:500;}
+  .detail-skills{display:flex;flex-wrap:wrap;gap:6px;}
+  .detail-skill{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:12px;padding:4px 10px;border-radius:6px;}
+
+  /* AIサマリーエリア */
+  .ai-summary-box{background:linear-gradient(135deg,rgba(0,212,255,.06),rgba(124,58,237,.06));border:1px solid rgba(0,212,255,.2);border-radius:12px;padding:16px 18px;margin-bottom:20px;}
+  .ai-summary-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .ai-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--accent);}
+  .ai-summary-text{font-size:13px;line-height:1.7;color:var(--text);}
+  .ai-summary-text.loading{color:var(--muted);font-style:italic;}
+  .ai-generating{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;}
+  .ai-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:aiPulse 1.2s ease infinite;}
+  .ai-dot:nth-child(2){animation-delay:.2s;}
+  .ai-dot:nth-child(3){animation-delay:.4s;}
+  @keyframes aiPulse{0%,100%{opacity:.3;transform:scale(.8);}50%{opacity:1;transform:scale(1.2);}}
+
+  .mail-card{cursor:pointer;}
+  .mail-card:hover{transform:translateX(2px);}
+
+
+  /* 案件登録モーダル */
+  .reg-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:500;display:none;align-items:center;justify-content:center;padding:16px;}
+  .reg-overlay.open{display:flex;}
+  .reg-modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:600px;max-width:95vw;max-height:90vh;overflow-y:auto;animation:modalIn .25s ease;}
+  .reg-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;position:sticky;top:0;background:var(--surface);z-index:10;}
+  .reg-title{font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:var(--pc);}
+  .reg-body{padding:20px 24px;}
+  .reg-field{margin-bottom:16px;}
+  .reg-label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;}
+  .reg-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none;transition:border-color .2s;}
+  .reg-input:focus{border-color:var(--pc);box-shadow:0 0 0 3px rgba(167,139,250,.1);}
+  .reg-input::placeholder{color:var(--muted);}
+  textarea.reg-input{resize:vertical;min-height:80px;}
+  .reg-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .reg-skills-wrap{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+  .reg-skill-tag{display:flex;align-items:center;gap:4px;background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.3);color:var(--pc);font-size:11px;padding:3px 8px;border-radius:4px;}
+  .reg-skill-tag button{background:none;border:none;color:var(--pc);cursor:pointer;font-size:12px;padding:0;line-height:1;}
+  .reg-skill-input-wrap{display:flex;gap:6px;margin-top:8px;}
+  .reg-skill-input-wrap input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:12px;font-family:'Noto Sans JP',sans-serif;outline:none;}
+  .reg-skill-input-wrap input:focus{border-color:var(--pc);}
+  .reg-skill-add-btn{background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.3);color:var(--pc);padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-family:'Noto Sans JP',sans-serif;white-space:nowrap;}
+  .reg-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;position:sticky;bottom:0;background:var(--surface);}
+  .reg-save-btn{background:linear-gradient(135deg,var(--pc),var(--accent2));color:#fff;font-weight:700;font-size:13px;padding:10px 24px;border-radius:8px;border:none;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .2s;}
+  .reg-save-btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(124,58,237,.4);}
+  .reg-save-btn:disabled{opacity:.6;cursor:not-allowed;transform:none;}
+  .reg-cancel-btn{background:var(--surface2);color:var(--muted);font-size:13px;padding:10px 20px;border-radius:8px;border:1px solid var(--border);cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+  .status-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;}
+  .status-open{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3);}
+  .status-closed{background:rgba(100,116,139,.1);color:var(--muted);border:1px solid var(--border);}
+
+  /* マッチングモーダル */
+  .match-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:400;display:none;align-items:center;justify-content:center;padding:16px;}
+  .match-overlay.open{display:flex;}
+  .match-modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:900px;max-width:96vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;animation:modalIn .25s ease;}
+  .match-header{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;}
+  .match-title{font-family:'Syne',sans-serif;font-size:17px;font-weight:700;background:linear-gradient(135deg,#0ea5e9,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+  .match-body{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);flex:1;overflow:hidden;}
+  .match-panel{background:var(--surface);display:flex;flex-direction:column;overflow:hidden;}
+  .match-panel-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0;}
+  .match-panel-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;}
+  .match-search{padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
+  .match-search input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:12px;font-family:'Noto Sans JP',sans-serif;outline:none;}
+  .match-search input:focus{border-color:var(--accent);}
+  .match-list{flex:1;overflow-y:auto;padding:10px;}
+  .match-item{padding:10px 12px;border-radius:8px;border:1px solid var(--border);margin-bottom:6px;cursor:pointer;transition:all .15s;}
+  .match-item:hover{border-color:rgba(0,212,255,.3);background:var(--surface2);}
+  .match-item.selected{border-color:var(--accent);background:rgba(0,212,255,.08);}
+  .match-item-subject{font-size:12px;font-weight:500;line-height:1.4;margin-bottom:6px;}
+  .match-item-meta{display:flex;gap:8px;flex-wrap:wrap;}
+  .match-item-tag{font-size:10px;background:var(--surface2);border:1px solid var(--border);padding:2px 7px;border-radius:4px;color:var(--muted);}
+  .match-result{background:var(--surface);border-top:1px solid var(--border);padding:16px;flex-shrink:0;max-height:40vh;overflow-y:auto;}
+  .match-result-title{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px;}
+  .match-result-item{display:flex;align-items:flex-start;gap:12px;padding:10px;border-radius:8px;border:1px solid var(--border);margin-bottom:8px;background:var(--surface2);}
+  .match-score-circle{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:14px;flex-shrink:0;}
+  .match-score-a{background:rgba(16,185,129,.15);color:var(--green);border:2px solid var(--green);}
+  .match-score-b{background:rgba(245,158,11,.15);color:var(--orange);border:2px solid var(--orange);}
+  .match-score-c{background:rgba(100,116,139,.1);color:var(--muted);border:2px solid var(--muted);}
+  .match-result-info{flex:1;}
+  .match-result-subject{font-size:12px;font-weight:500;margin-bottom:4px;line-height:1.4;}
+  .match-result-detail{font-size:11px;color:var(--muted);}
+  .match-bars{display:flex;gap:6px;margin-top:6px;}
+  .match-bar-wrap{flex:1;}
+  .match-bar-label{font-size:9px;color:var(--muted);margin-bottom:2px;}
+  .match-bar-bg{height:4px;background:var(--border);border-radius:2px;}
+  .match-bar-fill{height:4px;border-radius:2px;transition:width .5s ease;}
+  .no-select-msg{text-align:center;padding:30px;color:var(--muted);font-size:13px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- 案件登録モーダル -->
+<div class="reg-overlay" id="regOverlay" onclick="closeRegBg(event)">
+  <div class="reg-modal">
+    <div class="reg-header">
+      <span style="font-size:20px">📋</span>
+      <div class="reg-title">案件登録</div>
+      <button onclick="closeRegister()" style="margin-left:auto;background:var(--surface2);border:none;color:var(--muted);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:15px;">✕</button>
+    </div>
+    <div class="reg-body">
+      <div class="reg-field">
+        <label class="reg-label">案件名 *</label>
+        <input class="reg-input" id="regSubject" placeholder="例: Java/Spring Boot エンジニア募集（金融系）" />
+      </div>
+      <div class="reg-grid">
+        <div class="reg-field">
+          <label class="reg-label">クライアント・送信元会社</label>
+          <input class="reg-input" id="regCompany" placeholder="例: cy-tech" />
+        </div>
+        <div class="reg-field">
+          <label class="reg-label">担当者メール</label>
+          <input class="reg-input" id="regSender" type="email" placeholder="例: contact@company.co.jp" />
+        </div>
+      </div>
+      <div class="reg-grid">
+        <div class="reg-field">
+          <label class="reg-label">単価</label>
+          <input class="reg-input" id="regPrice" placeholder="例: 70〜80万" />
+        </div>
+        <div class="reg-field">
+          <label class="reg-label">勤務地・最寄り駅</label>
+          <input class="reg-input" id="regLocation" placeholder="例: 渋谷駅" />
+        </div>
+      </div>
+      <div class="reg-grid">
+        <div class="reg-field">
+          <label class="reg-label">参画時期</label>
+          <input class="reg-input" id="regAvail" placeholder="例: 7月〜、即日〜" />
+        </div>
+        <div class="reg-field">
+          <label class="reg-label">勤務形態</label>
+          <select class="reg-input" id="regRemote">
+            <option value="">選択してください</option>
+            <option value="フルリモート">フルリモート</option>
+            <option value="リモート併用">リモート併用（週1〜2出社）</option>
+            <option value="常駐">常駐</option>
+            <option value="ハイブリッド">ハイブリッド</option>
+          </select>
+        </div>
+      </div>
+      <div class="reg-field">
+        <label class="reg-label">必須スキル</label>
+        <div class="reg-skills-wrap" id="regSkillTags"></div>
+        <div class="reg-skill-input-wrap">
+          <input id="regSkillInput" placeholder="スキルを入力してEnter（例: Java）" onkeydown="addSkillOnEnter(event)" />
+          <button class="reg-skill-add-btn" onclick="addRegSkill()">＋ 追加</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;">
+          <span style="font-size:11px;color:var(--muted)">よく使うスキル：</span>
+          <button onclick="quickAddSkill('Java')" style="background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Java</button>
+          <button onclick="quickAddSkill('Python')" style="background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Python</button>
+          <button onclick="quickAddSkill('React')" style="background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer;">React</button>
+          <button onclick="quickAddSkill('TypeScript')" style="background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer;">TypeScript</button>
+          <button onclick="quickAddSkill('AWS')" style="background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer;">AWS</button>
+          <button onclick="quickAddSkill('PHP')" style="background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer;">PHP</button>
+          <button onclick="quickAddSkill('インフラ')" style="background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer;">インフラ</button>
+          <button onclick="quickAddSkill('PMO')" style="background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer;">PMO</button>
+        </div>
+      </div>
+      <div class="reg-field">
+        <label class="reg-label">案件詳細・備考</label>
+        <textarea class="reg-input" id="regBody" placeholder="案件の詳細内容、条件、備考など..."></textarea>
+      </div>
+    </div>
+    <div class="reg-footer">
+      <button class="reg-cancel-btn" onclick="closeRegister()">キャンセル</button>
+      <button class="reg-save-btn" id="regSaveBtn" onclick="saveProject()">💾 案件を登録する</button>
+    </div>
+  </div>
+</div>
+
+<!-- マッチングモーダル -->
+<div class="match-overlay" id="matchOverlay" onclick="closeMatchingBg(event)">
+  <div class="match-modal">
+    <div class="match-header">
+      <span style="font-size:20px">🤖</span>
+      <div class="match-title">AIマッチング</div>
+      <div style="font-size:11px;color:var(--muted);margin-left:4px;">スキル・単価・稼働・勤務形態で自動スコアリング</div>
+      <button onclick="closeMatching()" style="margin-left:auto;background:var(--surface2);border:none;color:var(--muted);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:13px;">✕</button>
+    </div>
+    <div style="display:flex;gap:1px;background:var(--border);flex-shrink:0;">
+      <button id="modeEngBtn" onclick="setMatchMode('engineer')" style="flex:1;padding:10px;background:rgba(0,212,255,.08);border:none;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">👤 要員を選んで案件を探す</button>
+      <button id="modePrjBtn" onclick="setMatchMode('project')" style="flex:1;padding:10px;background:var(--surface);border:none;color:var(--muted);font-size:12px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">📋 案件を選んで要員を探す</button>
+    </div>
+    <div class="match-body">
+      <div class="match-panel">
+        <div class="match-panel-header">
+          <div class="nav-dot" id="matchDot" style="background:var(--ec)"></div>
+          <div class="match-panel-title" id="matchPanelTitle" style="color:var(--ec)">要員一覧</div>
+          <span style="font-size:11px;color:var(--muted);margin-left:auto;" id="matchCount">0件</span>
+        </div>
+        <div class="match-search"><input type="text" id="matchSearch" placeholder="検索..." oninput="filterMatchList()"></div>
+        <div class="match-list" id="matchList"></div>
+      </div>
+      <div class="match-panel" style="display:flex;flex-direction:column;">
+        <div class="match-panel-header">
+          <div class="nav-dot" style="background:var(--green)"></div>
+          <div class="match-panel-title" style="color:var(--green)">マッチング結果</div>
+          <span style="font-size:11px;color:var(--muted);margin-left:auto;" id="matchResultCount"></span>
+        </div>
+        <div id="matchResult" style="flex:1;overflow-y:auto;padding:12px;">
+          <div class="no-select-msg">← 左から要員または案件を選んでください</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 設定モーダル -->
+<div class="modal-overlay" id="configModal">
+  <div class="modal">
+    <div class="modal-title">⚙️ Supabase接続設定</div>
+    <div class="field">
+      <label>Supabase Project URL</label>
+      <input type="text" id="cfgUrl" placeholder="https://secdflyudnyidgfyekfe.supabase.co" />
+    </div>
+    <div class="field">
+      <label>Supabase Anon Key（公開キー）</label>
+      <input type="text" id="cfgKey" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin-top:4px;">
+      Supabase ダッシュボード → Settings → API から取得できます
+    </p>
+    <div class="modal-btns">
+      <button class="btn-secondary" onclick="useDemoData()">デモデータで試す</button>
+      <button class="btn-primary" onclick="saveConfig()">接続する</button>
+    </div>
+  </div>
+</div>
+
+<!-- 詳細モーダル -->
+<div class="detail-overlay" id="detailOverlay" onclick="closeDetail(event)">
+  <div class="detail-modal" id="detailModal">
+    <div class="detail-header">
+      <span class="type-badge" id="detailBadge"></span>
+      <div class="detail-title" id="detailTitle"></div>
+      <button class="detail-close" onclick="closeDetailModal()">✕</button>
+    </div>
+    <div class="detail-body">
+      <div class="ai-summary-box">
+        <div class="ai-summary-header">
+          <span style="font-size:16px">✨</span>
+          <span class="ai-label">AI サマリー</span>
+        </div>
+        <div id="aiSummary">
+          <div class="ai-generating">
+            <div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>
+            <span>AIが分析中...</span>
+          </div>
+        </div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">基本情報</div>
+        <div class="detail-grid" id="detailGrid"></div>
+      </div>
+      <div class="detail-section" id="detailSkillSection">
+        <div class="detail-section-title">スキル・技術</div>
+        <div class="detail-skills" id="detailSkills"></div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">送信元情報</div>
+        <div class="detail-grid" id="detailSenderGrid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="logo">OLIVE SES</div>
+  <div class="hbadge">Supabase連携</div>
+  <div style="display:flex;align-items:center;gap:6px;margin-left:10px;">
+    <div class="live-dot"></div>
+    <span style="font-size:11px;color:var(--muted)" id="connLabel">接続中...</span>
+  </div>
+  <button class="reload-btn" id="reloadBtn" onclick="loadData()">⟳ 最新データ取得</button>
+  <button class="reload-btn" style="margin-left:8px;background:linear-gradient(135deg,rgba(124,58,237,.2),rgba(0,212,255,.1));border-color:rgba(124,58,237,.4);color:#a78bfa;" onclick="openMatching()">🤖 AIマッチング</button>
+  <button class="reload-btn" style="margin-left:8px;background:linear-gradient(135deg,rgba(167,139,250,.2),rgba(124,58,237,.1));border-color:rgba(167,139,250,.4);color:#c4b5fd;" onclick="openRegister()">＋ 案件登録</button>
+  <button class="reload-btn" style="margin-left:8px;" onclick="document.getElementById('configModal').style.display='flex'">⚙️ 設定</button>
+</header>
+
+<div class="stats-row">
+  <div class="stat-card"><div class="slabel">総メール数</div><div class="sval b" id="statTotal">—</div><div class="ssub">Supabase取得</div></div>
+  <div class="stat-card"><div class="slabel">要員紹介</div><div class="sval b" id="statEng">—</div><div class="ssub">エンジニア情報</div></div>
+  <div class="stat-card"><div class="slabel">案件紹介</div><div class="sval p" id="statPrj">—</div><div class="ssub">募集案件</div></div>
+  <div class="stat-card"><div class="slabel">最終取得</div><div class="sval g" style="font-size:16px;padding-top:6px;" id="statTime">—</div><div class="ssub">自動更新</div></div>
+</div>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="sbsec">
+      <div class="sidebar-title" style="margin-bottom:7px;">フィルター</div>
+      <button class="nav-item active" onclick="setFilter('all',this)">
+        <div class="nav-dot" style="background:var(--muted)"></div>すべて<span class="nav-count" id="cAll">0</span>
+      </button>
+      <button class="nav-item" onclick="setFilter('engineer',this)">
+        <div class="nav-dot" style="background:var(--ec)"></div>要員紹介<span class="nav-count" id="cEng">0</span>
+      </button>
+      <button class="nav-item" onclick="setFilter('project',this)">
+        <div class="nav-dot" style="background:var(--pc)"></div>案件紹介<span class="nav-count" id="cPrj">0</span>
+      </button>
+    </div>
+    <div class="sbsec">
+      <div class="sidebar-title" style="display:flex;align-items:center;justify-content:space-between;padding-right:14px;">送信元企業 <button onclick="clearSenderFilter()" id="senderClearBtn" style="display:none;background:none;border:none;color:var(--accent);font-size:10px;cursor:pointer;">✕ 解除</button></div>
+      <div id="senderList"></div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="content-title">メール一覧</div>
+    <div id="errorBanner" style="display:none" class="error-banner"></div>
+    <div class="search-area">
+      <!-- タグ入力型マルチ検索 -->
+      <div class="search-wrap" id="multiSearchWrap" style="flex-wrap:wrap;height:auto;min-height:42px;gap:4px;padding:6px 36px 6px 38px;cursor:text;" onclick="document.getElementById('searchTagInput').focus()">
+        <span class="search-icon" style="top:12px;">🔍</span>
+        <div id="searchTags" style="display:flex;flex-wrap:wrap;gap:4px;flex:1;"></div>
+        <input id="searchTagInput" type="text" placeholder="キーワードを入力してEnterで追加..." onkeydown="onSearchKeydown(event)" style="border:none;background:none;outline:none;color:var(--text);font-size:13px;font-family:'Noto Sans JP',sans-serif;min-width:180px;flex:1;padding:0;">
+        <button class="clear-btn" id="clearBtn" onclick="clearAllSearch()" style="display:none;position:static;width:auto;padding:2px 8px;border-radius:6px;font-size:11px;">✕ 全解除</button>
+      </div>
+      <!-- スキル -->
+      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
+        <span class="filter-label">スキル：</span>
+        <button class="chip" onclick="addSearchTag('Python')">Python</button>
+        <button class="chip" onclick="addSearchTag('React')">React</button>
+        <button class="chip" onclick="addSearchTag('Java')">Java</button>
+        <button class="chip" onclick="addSearchTag('TypeScript')">TypeScript</button>
+        <button class="chip" onclick="addSearchTag('PHP')">PHP</button>
+        <button class="chip" onclick="addSearchTag('Go')">Go</button>
+        <button class="chip" onclick="addSearchTag('AWS')">AWS</button>
+        <button class="chip" onclick="addSearchTag('インフラ')">インフラ</button>
+        <button class="chip" onclick="addSearchTag('PMO')">PMO</button>
+        <button class="chip" onclick="addSearchTag('Salesforce')">Salesforce</button>
+      </div>
+      <!-- 条件 -->
+      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
+        <span class="filter-label">条件：</span>
+        <button class="chip" onclick="addSearchTag('フルリモート')">フルリモート</button>
+        <button class="chip" onclick="addSearchTag('リモート併用')">リモート併用</button>
+        <button class="chip" onclick="addSearchTag('常駐')">常駐可</button>
+        <button class="chip" onclick="addSearchTag('即日')">即日〜</button>
+        <button class="chip" onclick="addSearchTag('7月')">7月〜</button>
+        <button class="chip" onclick="addSearchTag('8月')">8月〜</button>
+        <button class="chip" onclick="addSearchTag('100万')">100万超</button>
+      </div>
+      <!-- エリア -->
+      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
+        <span class="filter-label">エリア：</span>
+        <button class="chip" onclick="addSearchTag('東京')">東京</button>
+        <button class="chip" onclick="addSearchTag('神奈川')">神奈川</button>
+        <button class="chip" onclick="addSearchTag('埼玉')">埼玉</button>
+        <button class="chip" onclick="addSearchTag('千葉')">千葉</button>
+        <button class="chip" onclick="addSearchTag('大阪')">大阪</button>
+        <button class="chip" onclick="addSearchTag('愛知')">愛知</button>
+        <button class="chip" onclick="addSearchTag('福岡')">福岡</button>
+        <button class="chip" onclick="addSearchTag('北海道')">北海道</button>
+        <button class="chip" onclick="addSearchTag('京都')">京都</button>
+        <button class="chip" onclick="addSearchTag('兵庫')">兵庫</button>
+        <span id="prefMoreBtn" style="cursor:pointer;color:var(--accent);font-size:11px;padding:4px 6px;" onclick="togglePrefList()">▼ 全都道府県</span>
+      </div>
+      <div id="prefAllList" style="display:none;flex-wrap:wrap;gap:5px;padding-left:44px;">
+        <button class="chip" onclick="addSearchTag('宮城')">宮城</button>
+        <button class="chip" onclick="addSearchTag('青森')">青森</button>
+        <button class="chip" onclick="addSearchTag('岩手')">岩手</button>
+        <button class="chip" onclick="addSearchTag('秋田')">秋田</button>
+        <button class="chip" onclick="addSearchTag('山形')">山形</button>
+        <button class="chip" onclick="addSearchTag('福島')">福島</button>
+        <button class="chip" onclick="addSearchTag('茨城')">茨城</button>
+        <button class="chip" onclick="addSearchTag('栃木')">栃木</button>
+        <button class="chip" onclick="addSearchTag('群馬')">群馬</button>
+        <button class="chip" onclick="addSearchTag('新潟')">新潟</button>
+        <button class="chip" onclick="addSearchTag('富山')">富山</button>
+        <button class="chip" onclick="addSearchTag('石川')">石川</button>
+        <button class="chip" onclick="addSearchTag('福井')">福井</button>
+        <button class="chip" onclick="addSearchTag('山梨')">山梨</button>
+        <button class="chip" onclick="addSearchTag('長野')">長野</button>
+        <button class="chip" onclick="addSearchTag('静岡')">静岡</button>
+        <button class="chip" onclick="addSearchTag('岐阜')">岐阜</button>
+        <button class="chip" onclick="addSearchTag('三重')">三重</button>
+        <button class="chip" onclick="addSearchTag('滋賀')">滋賀</button>
+        <button class="chip" onclick="addSearchTag('奈良')">奈良</button>
+        <button class="chip" onclick="addSearchTag('和歌山')">和歌山</button>
+        <button class="chip" onclick="addSearchTag('鳥取')">鳥取</button>
+        <button class="chip" onclick="addSearchTag('島根')">島根</button>
+        <button class="chip" onclick="addSearchTag('岡山')">岡山</button>
+        <button class="chip" onclick="addSearchTag('広島')">広島</button>
+        <button class="chip" onclick="addSearchTag('山口')">山口</button>
+        <button class="chip" onclick="addSearchTag('徳島')">徳島</button>
+        <button class="chip" onclick="addSearchTag('香川')">香川</button>
+        <button class="chip" onclick="addSearchTag('愛媛')">愛媛</button>
+        <button class="chip" onclick="addSearchTag('高知')">高知</button>
+        <button class="chip" onclick="addSearchTag('佐賀')">佐賀</button>
+        <button class="chip" onclick="addSearchTag('長崎')">長崎</button>
+        <button class="chip" onclick="addSearchTag('熊本')">熊本</button>
+        <button class="chip" onclick="addSearchTag('大分')">大分</button>
+        <button class="chip" onclick="addSearchTag('宮崎')">宮崎</button>
+        <button class="chip" onclick="addSearchTag('鹿児島')">鹿児島</button>
+        <button class="chip" onclick="addSearchTag('沖縄')">沖縄</button>
+        <span style="cursor:pointer;color:var(--accent);font-size:11px;padding:4px 6px;" onclick="togglePrefList()">▲ 閉じる</span>
+      </div>
+    </div>
+    <div class="res-label" id="resLabel"></div>
+    <div class="cards-grid" id="cardsGrid">
+      <div class="loading-state"><div class="spinner"></div><div style="color:var(--muted);font-size:13px;">Supabaseからデータを取得中...</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================
+// 設定（Supabase接続情報）
+// ============================================
+let SUPABASE_URL = localStorage.getItem('sb_url') || 'https://secdflyudnyidgfyekfe.supabase.co';
+let SUPABASE_KEY = localStorage.getItem('sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlY2RmbHl1ZG55aWRnZnlla2ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4MjU1OTEsImV4cCI6MjA5NjQwMTU5MX0.SrPPn0TGL8t51MYoh4RFvQyysBnMnJfQ_7O2twlLPtQ';
+
+let allData = [], currentFilter = 'all', currentQuery = '';
+
+// ============================================
+// Supabaseからデータ取得
+// ============================================
+async function fetchFromSupabase() {
+  let allData = [];
+  let offset = 0;
+  const pageSize = 1000;
+
+  while (true) {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/ses_mails?select=*&order=received_at.desc&limit=${pageSize}&offset=${offset}`,
+      {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    if (!res.ok) throw new Error(`Supabase error: ${res.status} ${await res.text()}`);
+    const data = await res.json();
+    if (!data || data.length === 0) break;
+    allData = allData.concat(data);
+    if (data.length < pageSize) break;
+    offset += pageSize;
+  }
+  return allData;
+}
+
+async function loadData() {
+  const btn = document.getElementById('reloadBtn');
+  btn.disabled = true; btn.textContent = '取得中...';
+  document.getElementById('errorBanner').style.display = 'none';
+  document.getElementById('cardsGrid').innerHTML = '<div class="loading-state"><div class="spinner"></div><div style="color:var(--muted);font-size:13px;">Supabaseからデータを取得中...</div></div>';
+
+  try {
+    allData = await fetchFromSupabase();
+    document.getElementById('connLabel').textContent = 'sales@olive.style';
+    updateStats();
+    updateSidebar();
+    render();
+    document.getElementById('statTime').textContent = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'});
+  } catch(err) {
+    showError(err.message);
+  }
+  btn.disabled = false; btn.textContent = '⟳ 最新データ取得';
+}
+
+// ============================================
+// デモデータ（Supabase未設定時）
+// ============================================
+function useDemoData() {
+  document.getElementById('configModal').style.display = 'none';
+  allData = [
+    {id:'d1',type:'engineer',subject:'【直要員】TypeScript(6年)／React／Next.js／要件定義～／常駐可',skills:['TypeScript','React','Next.js','Electron'],age:null,gender:'男性',price:'',location:'',availability:'',remote:'常駐可',sender_company:'KAD',received_at:'2026-06-07T09:00:00Z'},
+    {id:'d2',type:'engineer',subject:'【AI・RAG導入提案／22歳】Python・Java・Dify／7月〜／53万',skills:['Python','Java','Dify','RAG','AI開発'],age:22,gender:'男性',price:'53万',location:'柏',availability:'7月〜',remote:'ハイブリッド',sender_company:'T-tech life',received_at:'2026-06-07T09:47:00Z'},
+    {id:'d3',type:'project',subject:'案件：Webアプリケーション開発・保守（Spring Boot／Vue.js）東京ビッグサイト・7月〜・55〜60万',skills:['Java','Spring Boot','Vue.js'],price:'55〜60万',location:'東京ビッグサイト',availability:'7月〜9月',remote:'週1〜2出社',sender_company:'cy-tech',received_at:'2026-06-07T09:00:00Z'},
+    {id:'d4',type:'project',subject:'【エンド直】100万円以上 / Go / PHP / React / フルスタック / 基本リモート',skills:['Go','PHP','React','フルスタック'],price:'100万以上',location:'',availability:'',remote:'基本リモート',sender_company:'D-Standing',received_at:'2026-06-07T05:30:00Z'},
+  ];
+  document.getElementById('connLabel').textContent = 'デモモード';
+  updateStats(); updateSidebar(); render();
+  document.getElementById('statTime').textContent = 'デモ';
+}
+
+// ============================================
+// 設定保存
+// ============================================
+function saveConfig() {
+  SUPABASE_URL = document.getElementById('cfgUrl').value.trim().replace(/\/$/, '');
+  SUPABASE_KEY = document.getElementById('cfgKey').value.trim();
+  if (!SUPABASE_URL || !SUPABASE_KEY) { alert('URLとKeyを入力してください'); return; }
+  localStorage.setItem('sb_url', SUPABASE_URL);
+  localStorage.setItem('sb_key', SUPABASE_KEY);
+  document.getElementById('configModal').style.display = 'none';
+  loadData();
+}
+
+// ============================================
+// 描画
+// ============================================
+function hl(text, q) {
+  if (!text) return '';
+  if (!searchTags || !searchTags.length) return text;
+  let result = text;
+  searchTags.forEach(tag => {
+    if (!tag) return;
+    const esc = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    result = result.replace(new RegExp('(' + esc + ')', 'gi'), '<span class="highlight">$1</span>');
+  });
+  return result;
+}
+
+function matches(c, q) {
+  // searchTagsが空なら全件表示
+  if (!searchTags.length) return true;
+  const blob = [
+    c.subject, (c.skills || []).join(' '), c.price || '', c.location || '',
+    c.availability || '', c.remote || '', c.sender_company || '',
+    c.sender || '', c.gender || '', c.raw_body || ''
+  ].join(' ').toLowerCase();
+  // AND検索：全タグが一致する場合のみtrue
+  return searchTags.every(tag => {
+    const t = tag.toLowerCase();
+    if ((c.sender_company || '').toLowerCase() === t) return true;
+    return blob.includes(t);
+  });
+}
+
+function formatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function renderCard(c, idx) {
+  const ie = c.type === 'engineer';
+  const skills = (c.skills || []).slice(0, 8).map(s => `<span class="skill-tag">${hl(s, currentQuery)}</span>`).join('');
+  const meta = [];
+  if (ie) {
+    if (c.age) meta.push(`<div class="meta-item">👤 <strong>${c.age}歳</strong> ${c.gender || ''}</div>`);
+    if (c.price) meta.push(`<div class="meta-item">💴 <strong>${hl(c.price, currentQuery)}</strong></div>`);
+    if (c.location) meta.push(`<div class="meta-item">📍 <strong>${hl(c.location, currentQuery)}</strong></div>`);
+    if (c.availability) meta.push(`<div class="meta-item">📅 <strong>${hl(c.availability, currentQuery)}</strong></div>`);
+    if (c.remote) meta.push(`<div class="meta-item">🏠 <strong>${hl(c.remote, currentQuery)}</strong></div>`);
+  } else {
+    if (c.location) meta.push(`<div class="meta-item">📍 <strong>${hl(c.location, currentQuery)}</strong></div>`);
+    if (c.availability) meta.push(`<div class="meta-item">📅 <strong>${hl(c.availability, currentQuery)}</strong></div>`);
+    if (c.price) meta.push(`<div class="meta-item">💴 <strong>${hl(c.price, currentQuery)}</strong></div>`);
+    if (c.remote) meta.push(`<div class="meta-item">🏠 <strong>${hl(c.remote, currentQuery)}</strong></div>`);
+  }
+  const cardData = encodeURIComponent(JSON.stringify(c));
+  return `<div class="mail-card ${c.type || 'engineer'}" style="animation-delay:${idx * .04}s" onclick="openDetail('${cardData}')">
+    <div class="card-top">
+      <span class="type-badge ${c.type || 'engineer'}">${ie ? '要員紹介' : '案件紹介'}</span>
+      <div class="card-subject">${hl(c.subject || '', currentQuery)}</div>
+    </div>
+    ${meta.length ? `<div class="card-meta">${meta.join('')}</div>` : ''}
+    ${skills ? `<div class="skill-tags">${skills}</div>` : ''}
+    <div class="card-footer">
+      <span class="sender-info">📧 ${c.sender_company || c.sender || ''}</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--accent);opacity:.7">詳細を見る →</span>
+      <span class="time-info">${formatDate(c.received_at)}</span>
+    </div>
+  </div>`;
+}
+
+// ============================================
+// 詳細モーダル
+// ============================================
+function openDetail(encoded) {
+  const c = JSON.parse(decodeURIComponent(encoded));
+  const ie = c.type === 'engineer';
+
+  // バッジ・タイトル
+  const badge = document.getElementById('detailBadge');
+  badge.textContent = ie ? '要員紹介' : '案件紹介';
+  badge.className = `type-badge ${c.type || 'engineer'}`;
+  document.getElementById('detailTitle').textContent = c.subject || '';
+
+  // 基本情報グリッド
+  const fields = ie ? [
+    ['年齢', c.age ? `${c.age}歳 ${c.gender || ''}` : '—'],
+    ['単価', c.price || '—'],
+    ['最寄り駅・拠点', c.location || '—'],
+    ['稼働開始', c.availability || '—'],
+    ['勤務形態', c.remote || '—'],
+    ['性別', c.gender || '—'],
+  ] : [
+    ['勤務地', c.location || '—'],
+    ['単価', c.price || '—'],
+    ['期間・稼働', c.availability || '—'],
+    ['勤務形態', c.remote || '—'],
+    ['単価下限', c.price_min ? `${c.price_min}万円` : '—'],
+    ['単価上限', c.price_max ? `${c.price_max}万円` : '—'],
+  ];
+
+  document.getElementById('detailGrid').innerHTML = fields.map(([l,v]) =>
+    `<div class="detail-field"><div class="detail-field-label">${l}</div><div class="detail-field-value">${v}</div></div>`
+  ).join('');
+
+  // スキル
+  const skills = c.skills || [];
+  document.getElementById('detailSkills').innerHTML = skills.length
+    ? skills.map(s => `<span class="detail-skill">${s}</span>`).join('')
+    : '<span style="color:var(--muted);font-size:12px">スキル情報なし</span>';
+
+  // 送信元
+  document.getElementById('detailSenderGrid').innerHTML = [
+    ['送信元会社', c.sender_company || '—'],
+    ['メールアドレス', c.sender || '—'],
+    ['受信日時', c.received_at ? new Date(c.received_at).toLocaleString('ja-JP') : '—'],
+    ['種別', ie ? '要員紹介' : '案件紹介'],
+  ].map(([l,v]) =>
+    `<div class="detail-field"><div class="detail-field-label">${l}</div><div class="detail-field-value" style="font-size:12px;word-break:break-all;">${v}</div></div>`
+  ).join('');
+
+  // モーダル表示
+  document.getElementById('detailOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  // AIサマリー生成
+  document.getElementById('aiSummary').innerHTML = `<div class="ai-generating"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div><span>AIが分析中...</span></div>`;
+  generateAISummary(c);
+}
+
+function closeDetail(e) {
+  if (e.target === document.getElementById('detailOverlay')) closeDetailModal();
+}
+
+function closeDetailModal() {
+  document.getElementById('detailOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// Escキーでモーダルを閉じる
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetailModal(); });
+
+function generateAISummary(c) {
+  const ie = c.type === 'engineer';
+
+  // サマリーをDBに保存済みであれば表示
+  if (c.summary) {
+    renderSummary(c.summary);
+    return;
+  }
+
+  // ローカル生成（指定フォーマット）
+  const summary = ie ? buildEngineerSummary(c) : buildProjectSummary(c);
+  renderSummary(summary);
+}
+
+function renderSummary(text) {
+  // 改行をHTMLに変換
+  const html = text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^・(.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/gs, m => `<ul style="padding-left:16px;margin:6px 0">${m}</ul>`)
+    .replace(/\n/g, '<br>');
+  document.getElementById('aiSummary').innerHTML = `<div class="ai-summary-text">${html}</div>`;
+}
+
+function buildEngineerSummary(c) {
+  const name = '—';
+  const age = c.age ? `${c.age}歳` : '—';
+  const gender = c.gender || '—';
+  const price = c.price || '—';
+  const location = c.location || '—';
+  const availability = c.availability || '—';
+  const remote = c.remote || '—';
+  const skills = c.skills || [];
+
+  let lines = [];
+  lines.push(`**氏名　　：${name}（${age} / ${gender}）**`);
+  lines.push(`希望単価：${price}`);
+  lines.push(`希望稼動：フルタイム（週5日）`);
+  lines.push(`参画時期：${availability}`);
+  lines.push(`最寄駅　：${location}`);
+  lines.push(`備考　　：${remote}`);
+  lines.push('');
+  lines.push('**＜スキル＞**');
+  skills.forEach(s => lines.push(`・${s}`));
+  lines.push('');
+
+  // 件名からキーワード抽出して説明文生成
+  const subject = c.subject || '';
+  const mainSkills = skills.slice(0, 3).join('・') || 'ITエンジニアリング';
+  const subSkills = skills.slice(3, 6).join('・');
+
+  lines.push(`${mainSkills}を中心に実務経験を持つエンジニアです。`);
+  if (subSkills) lines.push(`${subSkills}など幅広い技術領域をカバーしています。`);
+  if (remote && remote !== '—') lines.push(`勤務形態は${remote}で対応可能です。`);
+  if (availability && availability !== '—') lines.push(`${availability}から参画可能です。`);
+
+  lines.push('');
+  lines.push('**【主なスキルとツール】**');
+  lines.push(`・スキル：${skills.join('、')}`);
+  lines.push(`・稼働形態：${remote}`);
+  lines.push(`・参画可能時期：${availability}`);
+
+  return lines.join('\n');
+}
+
+function buildProjectSummary(c) {
+  const skills = c.skills || [];
+  const price = c.price || '—';
+  const location = c.location || '—';
+  const availability = c.availability || '—';
+  const remote = c.remote || '—';
+  const client = c.sender_company || '—';
+
+  let lines = [];
+  lines.push(`**案件名：${c.subject || '—'}**`);
+  lines.push('');
+  lines.push(`**クライアント：${client}**`);
+  lines.push(`単価　　：${price}`);
+  lines.push(`勤務地　：${location}`);
+  lines.push(`参画時期：${availability}`);
+  lines.push(`勤務形態：${remote}`);
+  lines.push('');
+  lines.push('**＜必須スキル＞**');
+  skills.forEach(s => lines.push(`・${s}`));
+  lines.push('');
+
+  const mainSkills = skills.slice(0, 3).join('・') || 'ITエンジニアリング';
+  lines.push(`${mainSkills}のスキルを持つエンジニアを募集している案件です。`);
+  if (location && location !== '—') lines.push(`勤務地は${location}で、${remote || '勤務形態は要確認'}となっています。`);
+  if (price && price !== '—') lines.push(`単価は${price}で、${availability || '参画時期は要確認'}からの参画となります。`);
+  lines.push(`${client}からの案件情報です。マッチする要員がいれば積極的にご提案ください。`);
+
+  lines.push('');
+  lines.push('**【案件詳細】**');
+  lines.push(`・必須スキル：${skills.join('、')}`);
+  lines.push(`・単価：${price}`);
+  lines.push(`・勤務地：${location}`);
+  lines.push(`・勤務形態：${remote}`);
+
+  return lines.join('\n');
+}
+
+// ※旧API呼び出しは削除 - ブラウザからは呼べないため
+async function _unused_generateAISummary(c) {
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 400,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text || 'サマリーを生成できませんでした。';
+    document.getElementById('aiSummary').innerHTML = `<div class="ai-summary-text">${text}</div>`;
+  } catch(err) {
+    document.getElementById('aiSummary').innerHTML = `<div class="ai-summary-text" style="color:var(--muted)">サマリーの生成に失敗しました。</div>`;
+  }
+}
+
+const PAGE_SIZE = 30;
+let currentPage = 1;
+
+function render() {
+  let data = currentFilter === 'all' ? allData : allData.filter(c => c.type === currentFilter);
+  if (searchTags && searchTags.length) data = data.filter(c => matches(c, currentQuery));
+
+  const total = data.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = 1;
+
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageData = data.slice(start, start + PAGE_SIZE);
+
+  const label = document.getElementById('resLabel');
+  const fromN = total === 0 ? 0 : start + 1;
+  const toN = Math.min(start + PAGE_SIZE, total);
+  const tagStr = searchTags.length ? `「${searchTags.join(' AND ')}」` : '';
+  label.textContent = tagStr
+    ? `${tagStr} の検索結果: ${total}件（${fromN}〜${toN}件表示）`
+    : `${total}件中 ${fromN}〜${toN}件表示`;
+
+  const grid = document.getElementById('cardsGrid');
+  if (!total) {
+    grid.innerHTML = `<div class="empty-state"><div style="font-size:28px;margin-bottom:10px">🔍</div>「${currentQuery}」に一致するデータがありません<br><button class="chip" onclick="clearAllSearch()" style="margin-top:12px">検索をクリア</button></div>`;
+    renderPagination(0, 1);
+    return;
+  }
+  grid.innerHTML = pageData.map((c, i) => renderCard(c, i)).join('');
+  renderPagination(total, totalPages);
+  // ページ変更時はトップにスクロール
+  document.querySelector('.content').scrollTop = 0;
+}
+
+function renderPagination(total, totalPages) {
+  // 既存のページネーションを削除
+  const old = document.getElementById('paginationArea');
+  if (old) old.remove();
+  if (totalPages <= 1) return;
+
+  const wrap = document.createElement('div');
+  wrap.id = 'paginationArea';
+  wrap.className = 'pagination';
+
+  const pages = [];
+  // 前へ
+  pages.push(`<button class="page-btn" ${currentPage===1?'disabled':''} onclick="goPage(${currentPage-1})">‹ 前へ</button>`);
+
+  // ページ番号
+  const range = [];
+  range.push(1);
+  if (currentPage > 3) range.push('...');
+  for (let i = Math.max(2, currentPage-1); i <= Math.min(totalPages-1, currentPage+1); i++) range.push(i);
+  if (currentPage < totalPages - 2) range.push('...');
+  if (totalPages > 1) range.push(totalPages);
+
+  range.forEach(p => {
+    if (p === '...') {
+      pages.push('<span class="page-ellipsis">…</span>');
+    } else {
+      pages.push(`<button class="page-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`);
+    }
+  });
+
+  // 次へ
+  pages.push(`<button class="page-btn" ${currentPage===totalPages?'disabled':''} onclick="goPage(${currentPage+1})">次へ ›</button>`);
+
+  // ページ情報
+  pages.push(`<span class="page-info">${currentPage} / ${totalPages}ページ</span>`);
+
+  wrap.innerHTML = pages.join('');
+  document.getElementById('cardsGrid').after(wrap);
+}
+
+function goPage(page) {
+  currentPage = page;
+  render();
+}
+
+function updateStats() {
+  const eng = allData.filter(c => c.type === 'engineer').length;
+  const prj = allData.filter(c => c.type === 'project').length;
+  document.getElementById('statTotal').textContent = allData.length;
+  document.getElementById('statEng').textContent = eng;
+  document.getElementById('statPrj').textContent = prj;
+  document.getElementById('cAll').textContent = allData.length;
+  document.getElementById('cEng').textContent = eng;
+  document.getElementById('cPrj').textContent = prj;
+}
+
+let currentSenderFilter = '';
+
+let showAllSenders = false;
+
+function updateSidebar() {
+  const counts = {};
+  allData.forEach(d => { const co = d.sender_company || '不明'; counts[co] = (counts[co] || 0) + 1; });
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const top = sorted.slice(0, 10);
+  const rest = sorted.slice(10);
+
+  const makeBtn = ([co, n]) => {
+    const isActive = currentSenderFilter === co;
+    const esc = co.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<button class="nav-item${isActive ? ' active' : ''}" onclick="filterBySender('${esc}')">
+      <div class="nav-dot" style="background:${isActive ? 'var(--accent)' : 'var(--border)'}"></div>
+      <span style="font-size:12px">${co}</span>
+      <span class="nav-count">${n}</span>
+    </button>`;
+  };
+
+  let html = top.map(makeBtn).join('');
+
+  if (rest.length > 0) {
+    if (showAllSenders) {
+      html += rest.map(makeBtn).join('');
+      html += `<button onclick="toggleSenders()" style="width:100%;padding:7px 14px;background:none;border:none;color:var(--accent);font-size:11px;cursor:pointer;text-align:left;font-family:'Noto Sans JP',sans-serif;">▲ 閉じる</button>`;
+    } else {
+      html += `<button onclick="toggleSenders()" style="width:100%;padding:7px 14px;background:none;border:none;color:var(--accent);font-size:11px;cursor:pointer;text-align:left;font-family:'Noto Sans JP',sans-serif;">▼ 他${rest.length}社を見る</button>`;
+    }
+  }
+
+  document.getElementById('senderList').innerHTML = html;
+}
+
+
+function togglePrefList() {
+  const el = document.getElementById('prefAllList');
+  const btn = document.getElementById('prefMoreBtn');
+  if (el.style.display === 'none') {
+    el.style.display = 'flex';
+    btn.textContent = '▲ 閉じる';
+  } else {
+    el.style.display = 'none';
+    btn.textContent = '▼ 全都道府県';
+  }
+}
+
+function toggleSenders() {
+  showAllSenders = !showAllSenders;
+  updateSidebar();
+}
+
+function filterBySender(company) {
+  if (currentSenderFilter === company) {
+    clearSenderFilter();
+    return;
+  }
+  currentSenderFilter = company;
+  document.getElementById('senderClearBtn').style.display = 'inline';
+  addSearchTag(company);
+  updateSidebar();
+}
+
+function clearSenderFilter() {
+  currentSenderFilter = '';
+  document.getElementById('senderClearBtn').style.display = 'none';
+  clearAllSearch();
+  updateSidebar();
+}
+
+function setFilter(type, el) {
+  currentFilter = type;
+  currentPage = 1;
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  render();
+}
+
+// マルチタグ検索
+let searchTags = [];
+
+function renderSearchTags() {
+  const container = document.getElementById('searchTags');
+  if (!container) return;
+  container.innerHTML = searchTags.map((t, i) =>
+    `<span class="search-tag">${t}<button onclick="removeSearchTag(${i})">✕</button></span>`
+  ).join('');
+  const clearBtn = document.getElementById('clearBtn');
+  if (clearBtn) clearBtn.style.display = searchTags.length ? 'flex' : 'none';
+  document.querySelectorAll('.chip').forEach(ch => {
+    ch.classList.toggle('active', searchTags.some(t => ch.textContent === t || ch.textContent === t + '〜'));
+  });
+}
+
+function addSearchTag(kw) {
+  kw = kw.trim();
+  if (!kw || searchTags.includes(kw)) return;
+  searchTags.push(kw);
+  currentQuery = searchTags.join(' ');
+  currentPage = 1;
+  renderSearchTags();
+  render();
+}
+
+function removeSearchTag(idx) {
+  searchTags.splice(idx, 1);
+  currentQuery = searchTags.join(' ');
+  currentPage = 1;
+  renderSearchTags();
+  render();
+}
+
+function onSearchKeydown(e) {
+  const inp = e.target;
+  if (e.key === 'Enter' && inp.value.trim()) {
+    e.preventDefault();
+    addSearchTag(inp.value.trim());
+    inp.value = '';
+  } else if (e.key === 'Backspace' && !inp.value && searchTags.length) {
+    removeSearchTag(searchTags.length - 1);
+  }
+}
+
+function clearAllSearch() {
+  searchTags = [];
+  currentQuery = '';
+  currentPage = 1;
+  const inp = document.getElementById('searchTagInput');
+  if (inp) inp.value = '';
+  renderSearchTags();
+  render();
+}
+
+function onSearch() {}
+function quickSearch(kw) { addSearchTag(kw); }
+function clearSearch() { clearAllSearch(); }
+
+function showError(msg) {
+  const b = document.getElementById('errorBanner');
+  b.textContent = '⚠️ ' + msg;
+  b.style.display = 'block';
+  document.getElementById('cardsGrid').innerHTML = '<div class="empty-state">データを取得できませんでした。設定を確認してください。</div>';
+}
+
+
+// ============================================
+// 案件登録機能
+// ============================================
+let regSkills = [];
+
+function openRegister() {
+  regSkills = [];
+  document.getElementById('regSubject').value = '';
+  document.getElementById('regCompany').value = '';
+  document.getElementById('regSender').value = '';
+  document.getElementById('regPrice').value = '';
+  document.getElementById('regLocation').value = '';
+  document.getElementById('regAvail').value = '';
+  document.getElementById('regRemote').value = '';
+  document.getElementById('regBody').value = '';
+  document.getElementById('regSkillInput').value = '';
+  renderRegSkills();
+  document.getElementById('regOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeRegister() {
+  document.getElementById('regOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function closeRegBg(e) {
+  if (e.target === document.getElementById('regOverlay')) closeRegister();
+}
+
+function renderRegSkills() {
+  document.getElementById('regSkillTags').innerHTML = regSkills.map((s,i) =>
+    '<span class="reg-skill-tag">' + s +
+    '<button onclick="removeRegSkill(' + i + ')">✕</button></span>'
+  ).join('');
+}
+
+function addSkillOnEnter(e) {
+  if (e.key === 'Enter') { e.preventDefault(); addRegSkill(); }
+}
+
+function addRegSkill() {
+  const val = document.getElementById('regSkillInput').value.trim();
+  if (val && !regSkills.includes(val)) {
+    regSkills.push(val);
+    renderRegSkills();
+  }
+  document.getElementById('regSkillInput').value = '';
+}
+
+function quickAddSkill(skill) {
+  if (!regSkills.includes(skill)) {
+    regSkills.push(skill);
+    renderRegSkills();
+  }
+}
+
+function removeRegSkill(idx) {
+  regSkills.splice(idx, 1);
+  renderRegSkills();
+}
+
+async function saveProject() {
+  const subject = document.getElementById('regSubject').value.trim();
+  if (!subject) { alert('案件名は必須です'); return; }
+
+  const btn = document.getElementById('regSaveBtn');
+  btn.disabled = true; btn.textContent = '登録中...';
+
+  const priceText = document.getElementById('regPrice').value.trim();
+  const priceMatch = priceText.match(/(\d+)[~〜～]?(\d+)?/);
+  const priceMin = priceMatch ? parseInt(priceMatch[1]) : null;
+  const priceMax = priceMatch ? (priceMatch[2] ? parseInt(priceMatch[2]) : priceMin) : null;
+
+  const record = {
+    gmail_id: 'manual_' + Date.now(),
+    type: 'project',
+    subject: subject,
+    sender: document.getElementById('regSender').value.trim(),
+    sender_company: document.getElementById('regCompany').value.trim(),
+    skills: regSkills,
+    price: priceText,
+    price_min: priceMin,
+    price_max: priceMax,
+    location: document.getElementById('regLocation').value.trim(),
+    availability: document.getElementById('regAvail').value.trim(),
+    remote: document.getElementById('regRemote').value,
+    raw_body: document.getElementById('regBody').value.trim(),
+    received_at: new Date().toISOString()
+  };
+
+  try {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/ses_mails', {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(record)
+    });
+
+    if (res.ok || res.status === 201) {
+      // ローカルデータにも追加して即反映
+      allData.unshift(record);
+      updateStats();
+      updateSidebar();
+      render();
+      closeRegister();
+      // トースト表示
+      const t = document.createElement('div');
+      t.style.cssText = 'position:fixed;bottom:20px;right:20px;background:var(--surface);border:1px solid rgba(167,139,250,.4);border-left:3px solid var(--pc);padding:12px 18px;border-radius:8px;font-size:13px;z-index:999;box-shadow:0 8px 28px rgba(0,0,0,.4);';
+      t.textContent = '✓ 案件を登録しました：' + subject.slice(0,30);
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 3500);
+    } else {
+      const err = await res.text();
+      alert('登録エラー: ' + err);
+    }
+  } catch(e) {
+    alert('エラー: ' + e.message);
+  }
+
+  btn.disabled = false; btn.textContent = '💾 案件を登録する';
+}
+
+// ============================================
+// AIマッチング機能
+// ============================================
+let matchMode = 'engineer'; // 'engineer' or 'project'
+let selectedMatchItem = null;
+
+function openMatching() {
+  document.getElementById('matchOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  renderMatchList();
+}
+
+function closeMatching() {
+  document.getElementById('matchOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function closeMatchingBg(e) {
+  if (e.target === document.getElementById('matchOverlay')) closeMatching();
+}
+
+function setMatchMode(mode) {
+  matchMode = mode;
+  selectedMatchItem = null;
+  const engBtn = document.getElementById('modeEngBtn');
+  const prjBtn = document.getElementById('modePrjBtn');
+  const dot = document.getElementById('matchDot');
+  const title = document.getElementById('matchPanelTitle');
+  if (mode === 'engineer') {
+    engBtn.style.background = 'rgba(0,212,255,.08)'; engBtn.style.color = 'var(--accent)';
+    prjBtn.style.background = 'var(--surface)'; prjBtn.style.color = 'var(--muted)';
+    dot.style.background = 'var(--ec)'; title.style.color = 'var(--ec)'; title.textContent = '要員一覧';
+  } else {
+    prjBtn.style.background = 'rgba(167,139,250,.08)'; prjBtn.style.color = 'var(--pc)';
+    engBtn.style.background = 'var(--surface)'; engBtn.style.color = 'var(--muted)';
+    dot.style.background = 'var(--pc)'; title.style.color = 'var(--pc)'; title.textContent = '案件一覧';
+  }
+  document.getElementById('matchSearch').value = '';
+  document.getElementById('matchResult').innerHTML = '<div class="no-select-msg">← 左から' + (mode === 'engineer' ? '要員' : '案件') + 'を選んでください</div>';
+  document.getElementById('matchResultCount').textContent = '';
+  renderMatchList();
+}
+
+function renderMatchList() {
+  const q = (document.getElementById('matchSearch').value || '').toLowerCase();
+  const items = allData.filter(d => d.type === matchMode);
+  const filtered = q ? items.filter(d => {
+    return (d.subject||'').toLowerCase().includes(q) ||
+           (d.skills||[]).join(' ').toLowerCase().includes(q) ||
+           (d.sender_company||'').toLowerCase().includes(q);
+  }) : items;
+
+  document.getElementById('matchCount').textContent = filtered.length + '件';
+  const list = document.getElementById('matchList');
+  if (!filtered.length) { list.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center;font-size:12px">該当なし</div>'; return; }
+
+  list.innerHTML = filtered.slice(0, 200).map((d,i) => {
+    const skills = (d.skills||[]).slice(0,5).map(s => '<span class="match-item-tag">' + s + '</span>').join('');
+    const meta = [
+      d.price ? '<span class="match-item-tag">💴 ' + d.price + '</span>' : '',
+      d.availability ? '<span class="match-item-tag">📅 ' + d.availability + '</span>' : '',
+      d.remote ? '<span class="match-item-tag">🏠 ' + d.remote + '</span>' : '',
+    ].filter(Boolean).join('');
+    const isSelected = selectedMatchItem && selectedMatchItem.gmail_id === d.gmail_id;
+    return '<div class="match-item' + (isSelected ? ' selected' : '') + '" onclick="selectMatchItem(' + i + ',' + JSON.stringify(JSON.stringify(filtered.slice(0,200)[i])).slice(1,-1) + ')">' +
+      '<div class="match-item-subject">' + (d.subject||'').slice(0,80) + '</div>' +
+      '<div class="match-item-meta">' + skills + meta + '</div>' +
+      '</div>';
+  }).join('');
+}
+
+function filterMatchList() { renderMatchList(); }
+
+function selectMatchItem(idx, itemJson) {
+  try {
+    selectedMatchItem = JSON.parse(itemJson);
+  } catch(e) {
+    // フォールバック
+    const items = allData.filter(d => d.type === matchMode);
+    selectedMatchItem = items[idx];
+  }
+  renderMatchList();
+  runMatching(selectedMatchItem);
+}
+
+function calcMatchScore(source, target) {
+  let skillScore = 0, priceScore = 0, availScore = 0, remoteScore = 0;
+
+  // スキルスコア（最重要・50点）
+  const srcSkills = (source.skills || []).map(s => s.toLowerCase());
+  const tgtSkills = (target.skills || []).map(s => s.toLowerCase());
+  if (srcSkills.length > 0 && tgtSkills.length > 0) {
+    const matched = srcSkills.filter(s => tgtSkills.some(t => t.includes(s) || s.includes(t))).length;
+    skillScore = Math.round((matched / Math.max(srcSkills.length, tgtSkills.length)) * 50);
+  }
+
+  // 単価スコア（20点）
+  const srcMin = source.price_min, srcMax = source.price_max;
+  const tgtMin = target.price_min, tgtMax = target.price_max;
+  if (srcMin && tgtMin) {
+    const srcMid = (srcMin + (srcMax||srcMin)) / 2;
+    const tgtMid = (tgtMin + (tgtMax||tgtMin)) / 2;
+    const diff = Math.abs(srcMid - tgtMid);
+    if (diff === 0) priceScore = 20;
+    else if (diff <= 5) priceScore = 18;
+    else if (diff <= 10) priceScore = 14;
+    else if (diff <= 20) priceScore = 8;
+    else priceScore = 2;
+  } else {
+    priceScore = 5; // 情報なし
+  }
+
+  // 稼働スコア（15点）
+  const srcAvail = source.availability || '';
+  const tgtAvail = target.availability || '';
+  if (srcAvail && tgtAvail) {
+    if (srcAvail === tgtAvail) availScore = 15;
+    else if (srcAvail.slice(0,2) === tgtAvail.slice(0,2)) availScore = 10;
+    else if (srcAvail.includes('即日') && tgtAvail.includes('即日')) availScore = 15;
+    else availScore = 5;
+  } else availScore = 5;
+
+  // 勤務形態スコア（15点）
+  const srcRemote = source.remote || '';
+  const tgtRemote = target.remote || '';
+  if (srcRemote && tgtRemote) {
+    if (srcRemote === tgtRemote) remoteScore = 15;
+    else if (srcRemote.includes('フルリモート') && tgtRemote.includes('フルリモート')) remoteScore = 15;
+    else if (srcRemote.includes('リモート') && tgtRemote.includes('リモート')) remoteScore = 10;
+    else remoteScore = 3;
+  } else remoteScore = 5;
+
+  const total = skillScore + priceScore + availScore + remoteScore;
+  return { total, skillScore, priceScore, availScore, remoteScore };
+}
+
+function runMatching(source) {
+  const targetType = matchMode === 'engineer' ? 'project' : 'engineer';
+  const targets = allData.filter(d => d.type === targetType);
+
+  // スコア計算
+  const scored = targets.map(t => ({
+    ...t,
+    score: calcMatchScore(source, t)
+  })).sort((a,b) => b.score.total - a.score.total).slice(0, 20);
+
+  const resultEl = document.getElementById('matchResult');
+  const label = matchMode === 'engineer' ? '案件' : '要員';
+  document.getElementById('matchResultCount').textContent = scored.length + '件中TOP20';
+
+  if (!scored.length) {
+    resultEl.innerHTML = '<div class="no-select-msg">マッチする' + label + 'が見つかりません</div>';
+    return;
+  }
+
+  resultEl.innerHTML = scored.map(t => {
+    const s = t.score;
+    const grade = s.total >= 70 ? 'a' : s.total >= 45 ? 'b' : 'c';
+    const gradeLabel = s.total >= 70 ? 'S' : s.total >= 45 ? 'A' : 'B';
+    const bars = [
+      {label:'スキル', val: s.skillScore, max: 50, color:'#00d4ff'},
+      {label:'単価', val: s.priceScore, max: 20, color:'#10b981'},
+      {label:'稼働', val: s.availScore, max: 15, color:'#f59e0b'},
+      {label:'勤務', val: s.remoteScore, max: 15, color:'#a78bfa'},
+    ];
+    const barsHtml = bars.map(b =>
+      '<div class="match-bar-wrap">' +
+      '<div class="match-bar-label">' + b.label + ' ' + b.val + '</div>' +
+      '<div class="match-bar-bg"><div class="match-bar-fill" style="width:' + Math.round(b.val/b.max*100) + '%;background:' + b.color + '"></div></div>' +
+      '</div>'
+    ).join('');
+
+    const skills = (t.skills||[]).slice(0,6).map(s => '<span class="match-item-tag">' + s + '</span>').join('');
+    const meta = [t.price, t.availability, t.remote, t.sender_company].filter(Boolean).join(' · ');
+
+    return '<div class="match-result-item">' +
+      '<div class="match-score-circle match-score-' + grade + '">' + s.total + '</div>' +
+      '<div class="match-result-info">' +
+      '<div class="match-result-subject">' + (t.subject||'').slice(0,90) + '</div>' +
+      '<div class="match-result-detail">' + meta + '</div>' +
+      '<div class="match-item-meta" style="margin-top:4px">' + skills + '</div>' +
+      '<div class="match-bars" style="margin-top:8px">' + barsHtml + '</div>' +
+      '</div></div>';
+  }).join('');
+}
+
+// ============================================
+// 初期化
+// ============================================
+if (SUPABASE_URL && SUPABASE_KEY) {
+  document.getElementById('configModal').style.display = 'none';
+  loadData();
+} else {
+  document.getElementById('configModal').style.display = 'flex';
+  document.getElementById('cardsGrid').innerHTML = '<div class="empty-state">Supabaseの接続情報を入力してください</div>';
+}
+</script>
+</div>
+</body>
+</html>
